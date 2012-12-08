@@ -1,70 +1,89 @@
 EventEmitter = require('events').EventEmitter
-five = require 'johnny-five'
-_ = require 'underscore' 
+Board = require 'johnny-five/lib/board'
 util = require 'util' 
+compulsive = require 'compulsive' 
 
-# interface found at http://code.google.com/p/codalyze/wiki/CyzRgb
+# constants
+# found at http://code.google.com/p/codalyze/wiki/CyzRgb
 
-class Pixel
+TO_RGB =        0x6e
+GET_RGB =       0x67
+FADE_TO_RGB =   0x63
+FADE_TO_HSB =   0x68
+GET_ADDRESS =   0x61
+SET_ADDRESS =   0x41
+SET_FADE =      0x66
+GET_VERSION =   0x5a
+WRITE_SCRIPT =  0x57
+READ_SCRIPT =   0x52
+PLAY_SCRIPT =   0x70
+STOP_SCRIPT =   0x0f
 
-  color: '#000000'
-  address: 0x00
-  connected: false
+class Pixel extends EventEmitter
 
-  initialize: (options) ->
+  address: 0x01
+  connected: true
+
+  constructor: (options = {}) ->
     @address = options.address
+
+    @board = Board.mount()
     @firmata = @board.firmata
 
     @firmata.sendI2CConfig()
-    @wait 100, ->
-      @check()
+    @setRGB 255,255,255
+    # @wait 100, =>
+    #   @check()
 
   send: (cmds) ->
     if @connected 
+      console.log "sending #{cmds}"
       @firmata.sendI2CWriteRequest @address, cmds
     else
       @emit 'error', 'not connected'
 
-  read: (bytes, callback) ->
-    @firmata.sendI2CReadRequest bytes, callback
+  read: (length, callback) ->
+    @firmata.sendI2CReadRequest @address, length, callback
 
   off: ->
-    @setFadeSpeed(10);
-    @setRGB(addr, 0,0,0 );
+    @setFadeSpeed(10)
+    @setRGB(0, 0, 0)
 
   setAddress: (address) ->
-    @send ['A',
+    @send [SET_ADDRESS,
           address,
-          0xD0,
-          0x0D,
+          '0xD0',
+          '0x0D',
           address]
+    @address = address
 
   check: ->
     @getAddress()
-    @on 'address:set', (address) ->
+    @on 'address:read', (address) ->
       if address == @address then @connected = true
 
   getAddress: ->
-    @send ['a']
+    @send [GET_ADDRESS]
     @read 1, (data) =>
-      @emit 'address:set', data      
+      console.log data
+      @emit 'address:read', data
 
   setFadeSpeed: (speed) ->
-    @send ['f', speed]
+    @send [SET_FADE, speed]
 
   # color functions
   setRGB: (r, g, b) ->
-    @send ['n', r, g, b]
-    @color = RGBToHex(r, g, b)
+    @send [TO_RGB, r, g, b]
+    @color = @RGBToHex(r, g, b)
 
   getRGB: ->
-    @send ['g']
+    @send [GET_RGB]
     @read 3, (data) =>
       console.log data
 
   setHex: (hex) ->
     rgb = @hexToRGB hex
-    @setRGB rgb.r, rgb,g, rgb.b
+    @setRGB rgb.r, rgb.g, rgb.b
     @color = hex
 
   RGBToHex: (r, g, b) ->
@@ -79,12 +98,10 @@ class Pixel
       else null
 
   fadeToRGB: (r, g, b) ->
-    @send ['c', r, g, b]
+    @send [FADE_TO_RGB, r, g, b]
+    @color = @RGBToHex(r, g, b)
 
-  fadeToHSB: (h, s, b) ->
-    @send ['h', h, s, b]
-
-
-util.inherits Pixel, events.EventEmitter
+["wait"].forEach (api) ->
+  Pixel::[api] = compulsive[api]
 
 module.exports = Pixel

@@ -2,7 +2,7 @@ class Matrix
 
   pixels: []
   
-  initialize: (options) ->
+  constructor: (options = {}) ->
     @rows = @options.rows
     @cols = @options.cols
 
@@ -14,7 +14,14 @@ class Matrix
   loop: (func) ->
     for row in @rows
       for col in @cols
-        func()
+        func.call(@, row, col)
+
+  clear: () ->
+    @loop (r, c) ->
+      @pixels[r][c].off()
+
+  set: (r, c, color) ->
+    @pixels[r,c].setHex color
 
   buildMatrixArray: ->
     i = 0
