@@ -1,23 +1,24 @@
 EventEmitter = require('events').EventEmitter
-Board = require 'johnny-five/lib/board'
-util = require 'util' 
-compulsive = require 'compulsive' 
+Board        = require 'johnny-five/lib/board'
+util         = require 'util' 
+compulsive   = require 'compulsive' 
+Color        = require 'color'
 
 # constants
 # found at http://code.google.com/p/codalyze/wiki/CyzRgb
 
-TO_RGB =        0x6e
-GET_RGB =       0x67
-FADE_TO_RGB =   0x63
-FADE_TO_HSB =   0x68
-GET_ADDRESS =   0x61
-SET_ADDRESS =   0x41
-SET_FADE =      0x66
-GET_VERSION =   0x5a
-WRITE_SCRIPT =  0x57
-READ_SCRIPT =   0x52
-PLAY_SCRIPT =   0x70
-STOP_SCRIPT =   0x0f
+TO_RGB        = 0x6e
+GET_RGB       = 0x67
+FADE_TO_RGB   = 0x63
+FADE_TO_HSB   = 0x68
+GET_ADDRESS   = 0x61
+SET_ADDRESS   = 0x41
+SET_FADE      = 0x66
+GET_VERSION   = 0x5a
+WRITE_SCRIPT  = 0x57
+READ_SCRIPT   = 0x52
+PLAY_SCRIPT   = 0x70
+STOP_SCRIPT   = 0x0f
 
 class Pixel extends EventEmitter
 
@@ -31,9 +32,7 @@ class Pixel extends EventEmitter
     @firmata = @board.firmata
 
     @firmata.sendI2CConfig()
-    @setRGB 255,255,255
-    # @wait 100, =>
-    #   @check()
+    @color = new Color(r: 0, g: 0, b: 0)
 
   send: (cmds) ->
     if @connected 
@@ -48,6 +47,11 @@ class Pixel extends EventEmitter
   off: ->
     @setFadeSpeed(10)
     @setRGB(0, 0, 0)
+
+  setAddressInit: (address) ->
+    # global brodcast on address 0x00
+    @setAddress 0x00
+    @setAddress address
 
   setAddress: (address) ->
     @send [SET_ADDRESS,
@@ -72,34 +76,36 @@ class Pixel extends EventEmitter
     @send [SET_FADE, speed]
 
   # color functions
+
+  setColor: (color) ->
+    @setRGB color.red(), color,green(), color.blue()
+    @color = color
+
   setRGB: (r, g, b) ->
     @send [TO_RGB, r, g, b]
-    @color = @RGBToHex(r, g, b)
 
   getRGB: ->
     @send [GET_RGB]
     @read 3, (data) =>
       console.log data
 
-  setHex: (hex) ->
-    rgb = @hexToRGB hex
-    @setRGB rgb.r, rgb.g, rgb.b
-    @color = hex
+  # RGBToHex: (r, g, b) ->
+  #   return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
 
-  RGBToHex: (r, g, b) ->
-    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
-
-  hexToRGB: (hex) ->
-    result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-    return if result 
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16)
-      else null
+  # hexToRGB: (hex) ->
+  #   result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  #   return if result 
+  #       r: parseInt(result[1], 16),
+  #       g: parseInt(result[2], 16),
+  #       b: parseInt(result[3], 16)
+  #     else null
 
   fadeToRGB: (r, g, b) ->
     @send [FADE_TO_RGB, r, g, b]
-    @color = @RGBToHex(r, g, b)
+
+  fadeToHSB: (h, s, b) ->
+    @send [FADE_TO_HSB, h, s, b]
+
 
 ["wait"].forEach (api) ->
   Pixel::[api] = compulsive[api]

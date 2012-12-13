@@ -1,0 +1,17 @@
+body {
+  background: #AAA;
+}
+li { list-style-type: none; }
+#pixel-matrix .pixel {
+  float: left;
+  width: 50px;
+  height: 50px;
+  border: 1px solid #222;
+  margin: 2px;
+  background: #FFF;
+}
+
+.clearfix {
+  overflow: hidden;
+  *zoom: 1; 
+}
